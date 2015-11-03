@@ -2,7 +2,9 @@
 <template name="main">
   <h1>Todos</h1>
   {{> navigation}}
-  {{> lists}}
+  {{#if currentUser}}
+    {{> lists}}
+  {{/if}}
   {{> yield}} 
   <hr />
   <p>Copyright &copy; Todos, 2015. </p>
@@ -11,17 +13,31 @@
 <template name="navigation">
   <ul>
     <li><a href="{{pathFor route='home'}}">Home</a></li>
+    {{#if currentUser}}
+    <li><a href="#" class="logout">Logout</a></li>
+    {{else}}
     <li><a href="{{pathFor route='register'}}">Register</a></li>
     <li><a href="{{pathFor route='login'}}">Login</a></li>
+    {{/if}}
   </ul>
 </template>
 
 <template name="register">
   <h2>Register</h2>
+  <form class="register">
+    <p>Email: <input type="email" name="email"></p>
+    <p>Password: <input type="password" name="password"></p>
+    <p><input type="submit" value="Register"></p>
+  </form>
 </template>
 
 <template name="login">
   <h2>Login</h2>
+  <form class="login">
+    <p>Email: <input type="email" name="email" required></p>
+    <p>Password: <input type="password" name="password" required></p>
+    <p><input type="submit" value="Login"></p>
+  </form>
 </template>
 
 <template name="home">
@@ -39,7 +55,7 @@
   {{> addList}}
   <ul>
     {{#each list}}
-      <li><a href="/list/{{_id}}">{{name}}</a></li>
+      <li><a href="{{pathFor route='listPage'}}">{{name}}</a></li>
       {{/each}}
     </ul>
 </template>

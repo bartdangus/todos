@@ -12,18 +12,45 @@ Router.route('/', {
   template: 'home'
 });
 Router.route('/list/:_id', {
+  name: 'listPage',
   template: 'listPage',
   data: function(){
     var currentList = this.params._id;
-    return Lists.findOne({ _id: currentList });
+    var currentUser = Meteor.userId();
+    return Lists.findOne({ _id: currentList, createdBy: currentUser });
+  },
+  onRun: function(){
+    console.log("you trigged 'onrun' for the 'listPage' route.");
+    this.next();
+  },
+  onRerun: function(){
+    console.log("You trigged the 'onrerun' for the 'listPage; route.");
+    this.next();
+  },
+  onBeforeAction: function(){
+    var currentUser = Meteor.userId();
+    if(currentUser){
+        this.next();
+    } else {
+        this.render("login");
+    }
+  },
+  onAfterAction: function(){
+    console.log("you trigged 'onAfterAction' for the 'listPage' route.");
+  },
+  onStop: function(){
+    console.log("you trigged 'onStop' for the 'listPage' route.");
   }
 });
+
+//end Routes - Start of Client Helpers
 
 if(Meteor.isClient){
   Template.todos.helpers({
   'todo': function(){
     var currentList = this._id;
-    return Todos.find({}, {sort: {createdAt: -1}});
+    var currentUser = Meteor.userId();
+    return Todos.find({listId: currentList, createdBy: currentUser }, {sort: {createdAt: -1}});
     }
   });
 
@@ -40,25 +67,111 @@ if(Meteor.isClient){
 
   Template.todosCount.helpers({
     'totalTodos': function(){
-      return Todos.find().count();
+      var currentList = this._id;
+      return Todos.find({listId: currentList }).count();
     },
     'completedTodos': function(){
-      return Todos.find({completed: true }).count();
+      var currentList = this._id;
+      return Todos.find({ listId: currentList, completed: true }).count();
     }
   });
 
   Template.lists.helpers({
     'list': function(){
-      return Lists.find({}, {sort: {name: 1}});
+      var currentUser = Meteor.userId();
+      return Lists.find({ createdBy: currentUser }, {sort: {name: 1}});
     }
   })
+
+  Template.navigation.events({
+    'click .logout': function(event){
+      event.preventDefault();
+      Meteor.logout();
+      Router.go('login');
+    }
+  });
+
+  Template.login.events({
+    'submit form': function(event){
+      event.preventDefault();
+      /*
+      var email = $('[name=email]').val();
+      var password = $('[name=password]').val();
+      Meteor.loginWithPassword(email, password, function(error){
+        if(error){
+        console.log(error.reason);
+      } else {
+        var currentRoute = Router.current().route.getName();
+        if(currentRoute == "login"){
+            Router.go("home");
+        }
+      }
+      });
+*/
+    }
+  });
+
+  Template.login.onCreated(function(){
+    console.log("The 'login' template was just created.");
+  });
+
+  Template.login.onRendered(function(){
+    $('.login').validate({
+      rules: {
+        email: {
+          required: true,
+          email: true
+        },
+        password: {
+          required: true,
+          minLength: 6
+        }
+      },
+      messages: {
+        email: {
+          required: "You must enter an email address.",
+          email: "You've entered an invalid email address."
+        },
+        password: {
+          required: "You must enter a password.",
+          minLength: "Your password must be at least {0} characters."
+        }
+      }
+    });
+  });
+
+  Template.login.onDestroyed(function(){
+    console.log("The 'login' template was just destroyed.");
+  });
+
+  Template.register.events({
+    'submit form': function(event){
+      event.preventDefault();
+      var email = $('[name=email]').val();
+      var password = $('[name=password]').val();
+      Accounts.createUser({
+        email: email,
+        password: password
+      }, function(error){
+        if(error){
+          console.log(error.reason);
+        } else{
+            Router.go('home');    
+        }
+      });  
+    }
+  });
 
   Template.addList.events({
     'submit form': function(event){
       event.preventDefault();
       var listName = $('[name="listName"]').val();
+      var currentUser = Meteor.userId();
       Lists.insert({
-        name: listName
+        name: listName,
+        createdBy: currentUser
+      }, function(error, results){
+        Router.go('listPage', { _id: results });
       });
       $('[name=listName]').val('');
     }
@@ -68,10 +181,13 @@ if(Meteor.isClient){
     'submit form': function(event){
       event.preventDefault();
       var todoName = $('[name="todoName"]').val();
+      var currentUser = Meteor.userId();
+      var currentList = this._id;
       Todos.insert({
         name: todoName,
         completed: false,
         createdAt: new Date(),
+        createdBy: currentUser,
         listId: currentList
       });
       $('[name="todoName"]').val('');
