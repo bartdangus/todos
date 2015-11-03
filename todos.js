@@ -1,8 +1,28 @@
+Router.configure({
+  layoutTemplate: 'main'
+});
+
 Todos = new Meteor.Collection('todos');
+Lists = new Meteor.Collection('lists');
+
+Router.route('/register');
+Router.route('/login');
+Router.route('/', {
+  name: 'home',
+  template: 'home'
+});
+Router.route('/list/:_id', {
+  template: 'listPage',
+  data: function(){
+    var currentList = this.params._id;
+    return Lists.findOne({ _id: currentList });
+  }
+});
 
 if(Meteor.isClient){
   Template.todos.helpers({
   'todo': function(){
+    var currentList = this._id;
     return Todos.find({}, {sort: {createdAt: -1}});
     }
   });
@@ -16,7 +36,7 @@ if(Meteor.isClient){
         return "";
       }
     }
-  })
+  });
 
   Template.todosCount.helpers({
     'totalTodos': function(){
@@ -27,6 +47,23 @@ if(Meteor.isClient){
     }
   });
 
+  Template.lists.helpers({
+    'list': function(){
+      return Lists.find({}, {sort: {name: 1}});
+    }
+  })
+
+  Template.addList.events({
+    'submit form': function(event){
+      event.preventDefault();
+      var listName = $('[name="listName"]').val();
+      Lists.insert({
+        name: listName
+      });
+      $('[name=listName]').val('');
+    }
+  });
+
   Template.addTodo.events({
     'submit form': function(event){
       event.preventDefault();
@@ -34,14 +71,17 @@ if(Meteor.isClient){
       Todos.insert({
         name: todoName,
         completed: false,
-        createdAt: new Date()
+        createdAt: new Date(),
+        listId: currentList
       });
       $('[name="todoName"]').val('');
     }
   });
+
   Template.todoItem.events({
     'click .delete-todo': function(event){
       event.preventDefault();
+      var currentList = this._id;
       var documentId = this._id;
       var confirm = window.confirm("Delete this shit for real?");
       if(confirm){
@@ -75,5 +115,7 @@ if(Meteor.isClient){
 if(Meteor.isServer){
 
 }
+
+
 
 
