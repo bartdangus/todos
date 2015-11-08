@@ -11,9 +11,6 @@ Router.route('/login');
 Router.route('/', {
   name: 'home',
   template: 'home',
-  waitOn: function(){
-    return Meteor.subscribe('lists');
-  }
 });
 Router.route('/list/:_id', {
   name: 'listPage',
@@ -33,7 +30,7 @@ Router.route('/list/:_id', {
   },
   waitOn: function(){
     var currentList = this.params._id;
-    return [ Meteor.subscribe('lists'), Meteor.subscribe('todos', currentList) ]
+    return Meteor.subscribe('todos', currentList); 
   }
 });
 
@@ -193,6 +190,10 @@ if(Meteor.isClient){
         minlength: "Your password must be at least {0} donks long."
       }
     }
+  });
+
+  Template.lists.onCreated(function () {
+    this.subscribe('lists');
   });
 
 
