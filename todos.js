@@ -1,5 +1,6 @@
 Router.configure({
-  layoutTemplate: 'main'
+  layoutTemplate: 'main',
+  loadingTemplate: 'loading'
 });
 
 Todos = new Meteor.Collection('todos');
@@ -9,7 +10,10 @@ Router.route('/register');
 Router.route('/login');
 Router.route('/', {
   name: 'home',
-  template: 'home'
+  template: 'home',
+  waitOn: function(){
+    return Meteor.subscribe('lists');
+  }
 });
 Router.route('/list/:_id', {
   name: 'listPage',
@@ -19,14 +23,6 @@ Router.route('/list/:_id', {
     var currentUser = Meteor.userId();
     return Lists.findOne({ _id: currentList, createdBy: currentUser });
   },
-  onRun: function(){
-    console.log("you trigged 'onrun' for the 'listPage' route.");
-    this.next();
-  },
-  onRerun: function(){
-    console.log("You trigged the 'onrerun' for the 'listPage; route.");
-    this.next();
-  },
   onBeforeAction: function(){
     var currentUser = Meteor.userId();
     if(currentUser){
@@ -35,11 +31,9 @@ Router.route('/list/:_id', {
         this.render("login");
     }
   },
-  onAfterAction: function(){
-    console.log("you trigged 'onAfterAction' for the 'listPage' route.");
-  },
-  onStop: function(){
-    console.log("you trigged 'onStop' for the 'listPage' route.");
+  waitOn: function(){
+    var currentList = this.params._id;
+    return [ Meteor.subscribe('lists'), Meteor.subscribe('todos', currentList) ]
   }
 });
 
@@ -87,7 +81,7 @@ if(Meteor.isClient){
     'click .logout': function(event){
       event.preventDefault();
       Meteor.logout();
-      Router.go('login');
+      Router.go("login");
     }
   });
 
@@ -116,26 +110,30 @@ if(Meteor.isClient){
   });
 
   Template.login.onRendered(function(){
-    $('.login').validate({
-      rules: {
-        email: {
-          required: true,
-          email: true
-        },
-        password: {
-          required: true,
-          minLength: 6
-        }
-      },
-      messages: {
-        email: {
-          required: "You must enter an email address.",
-          email: "You've entered an invalid email address."
-        },
-        password: {
-          required: "You must enter a password.",
-          minLength: "Your password must be at least {0} characters."
-        }
+    var validator = $('.login').validate({
+      submitHandler: function(event){
+        var email = $('[name=email]').val();
+        var password = $('[name=password]').val();
+        Meteor.loginWithPassword(email, password, function(error){
+          if(error){
+            if(error.reason == "User not found"){
+                validator.showErrors({
+                  email: error.reason
+                });  
+            }
+            if(error.reason == "Incorrect password"){
+              validator.showErrors({
+                password: error.reason
+              });
+            }
+            
+          } else {
+            var currentRoute = Router.current().route.getName();
+            if(currentRoute == "login"){
+              Router.go("home");
+            }
+          }
+        });
       }
     });
   });
@@ -147,20 +145,56 @@ if(Meteor.isClient){
   Template.register.events({
     'submit form': function(event){
       event.preventDefault();
-      var email = $('[name=email]').val();
-      var password = $('[name=password]').val();
-      Accounts.createUser({
-        email: email,
-        password: password
-      }, function(error){
-        if(error){
-          console.log(error.reason);
-        } else{
-            Router.go('home');    
-        }
-      });  
     }
   });
+
+  Template.register.onRendered(function(){
+    var validator = $('.register').validate({
+      submitHandler: function(event){
+        var email = $('[name=email]').val();
+        var password = $('[name=password]').val();
+        Accounts.createUser({
+          email: email,
+          password: password
+        }, function(error){
+          if(error){
+            if(error.reason == "Email already exists."){
+              validator.showErrors({
+                email: error.reason
+              });
+            }
+          } else {
+            Router.go("home");
+          }
+        });
+      }
+    });
+  });
+
+
+  $.validator.setDefaults({
+    rules: {
+      email: {
+        required: true,
+        email: true
+      },
+      password: {
+        required: true,
+        minlength: 6
+      }
+    },
+    messages: {
+      email: {
+        required: "You must enter an email address.",
+        email: "You've entered an invalid email ma fucka."
+      },
+      password: {
+        required: "You must enter a password dingus.",
+        minlength: "Your password must be at least {0} donks long."
+      }
+    }
+  });
+
 
   Template.addList.events({
     'submit form': function(event){
@@ -190,6 +224,7 @@ if(Meteor.isClient){
         createdBy: currentUser,
         listId: currentList
       });
+      console.log(todoName)
       $('[name="todoName"]').val('');
     }
   });
@@ -226,10 +261,19 @@ if(Meteor.isClient){
     }
   }
   })
+
+
 }
 
 if(Meteor.isServer){
-
+    Meteor.publish('lists', function(){
+      var currentUser = this.userId;
+      return Lists.find({createdBy: currentUser });
+    });
+    Meteor.publish('todos', function(currentList){
+      var currentUser = this.userId;
+      return Todos.find({createdBy: currentUser, listId: currentList });
+    });
 }
 
 
